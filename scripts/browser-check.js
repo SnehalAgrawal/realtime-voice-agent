@@ -4,6 +4,8 @@
 //
 //   npm run check:browser        (needs Chrome, the models, and Ollama running)
 //   npm run check:browser -- --screenshot page.png
+//   npm run check:browser -- --record              also records (tab video and both voices) and checks the file
+//   npm run check:browser -- --record-audio-only   the same, with screen sharing declined
 //
 // Chrome reads the file from the moment the page asks for the microphone; the file has
 // silence where the assistant is expected to speak. The timing of the interruption is
@@ -56,14 +58,29 @@ const browser = await chromium.launch({
     "--use-fake-device-for-media-stream",
     `--use-file-for-fake-audio-capture=${micFile}%noloop`,
     "--autoplay-policy=no-user-gesture-required",
+    // Accept the "share this tab" prompt for the recording check.
+    "--auto-accept-this-tab-capture",
+    "--auto-select-tab-capture-source-by-title=Voice agent",
   ],
 });
+const recordMode = process.argv.includes("--record-audio-only") ? "audio" : process.argv.includes("--record") ? "video" : null;
 let failed;
 try {
   const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
   page.on("pageerror", (error) => console.log(`[page error] ${error.message}`));
   await page.goto(server.url);
   await page.click("#start");
+  if (recordMode) {
+    await page.waitForSelector("#record:not([disabled])");
+    if (recordMode === "audio") {
+      // As if screen sharing were declined.
+      await page.evaluate(() => {
+        navigator.mediaDevices.getDisplayMedia = () => Promise.reject(new DOMException("declined", "NotAllowedError"));
+      });
+    }
+    await page.click("#record");
+    await page.waitForSelector("#record.recording");
+  }
   const seconds = total / RATE + 8;
   console.log(`Conversation running for up to ${Math.round(seconds)} s ...`);
   const deadline = Date.now() + seconds * 1000;
@@ -73,6 +90,16 @@ try {
     log = await page.evaluate(() => globalThis.voiceLog);
     const ends = log.filter((m) => m.type === "turn_end");
     if (ends.length >= 4 && ends.at(-1).transcript?.toLowerCase().includes("stop")) break;
+  }
+  let recordingCheck = null;
+  if (recordMode) {
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("#record")]);
+    const saved = join(dir, download.suggestedFilename());
+    await download.saveAs(saved);
+    recordingCheck = await page.evaluate(analyseRecording);
+    recordingCheck.file = download.suggestedFilename();
+    console.log(`Recording: ${recordingCheck.file}, ${(recordingCheck.size / 1e6).toFixed(1)} MB, ${recordingCheck.type}, video ${recordingCheck.video}, ${recordingCheck.seconds.toFixed(1)} s of audio`);
+    console.log(`  level while only the assistant spoke ${recordingCheck.assistantRms.toFixed(3)} (${recordingCheck.assistantWindow}), while only the caller spoke ${recordingCheck.callerRms.toFixed(3)} (${recordingCheck.callerWindow})`);
   }
   const statusText = await page.textContent("#status");
   const stats = await page.evaluate(() => globalThis.voiceStats);
@@ -105,6 +132,13 @@ try {
     ["the page was told to clear playback", clears.length >= 1],
     ["the interruption was answered", ends.some((e) => /stop/i.test(e.transcript ?? "") && e.outcome === "completed")],
     ["latency panels were shown", shown.length >= 2],
+    ...(recordingCheck
+      ? [
+          [`the recording has ${recordMode === "video" ? "video and " : ""}audio`, recordingCheck.video === (recordMode === "video") && recordingCheck.seconds > 20],
+          ["the assistant's voice is in the recording", recordingCheck.assistantRms > 0.01],
+          ["the caller's voice is in the recording", recordingCheck.callerRms > 0.01],
+        ]
+      : []),
   ];
   console.log("");
   for (const [name, ok] of checks) console.log(`${ok ? "ok  " : "FAIL"} ${name}`);
@@ -114,3 +148,38 @@ try {
   await server.close();
 }
 process.exit(failed ? 1 : 0);
+
+/**
+ * Runs in the page: decodes the saved recording and measures its level while only the
+ * assistant was speaking (the greeting, before the caller says anything) and while only
+ * the caller was speaking (their first question, before any reply).
+ */
+async function analyseRecording() {
+  const { blob, video, size, type } = globalThis.voiceRecording;
+  const log = globalThis.voiceLog;
+  const startedAt = globalThis.voiceStats.recordingStartedAt;
+  const audio = await new globalThis.OfflineAudioContext(1, 1, 48000).decodeAudioData(await blob.arrayBuffer());
+  const samples = audio.getChannelData(0);
+  const rms = (from, to) => {
+    const a = Math.max(0, Math.floor(((from - startedAt) / 1000) * audio.sampleRate));
+    const b = Math.min(samples.length, Math.floor(((to - startedAt) / 1000) * audio.sampleRate));
+    let sum = 0;
+    for (let i = a; i < b; i++) sum += samples[i] * samples[i];
+    return b > a ? Math.sqrt(sum / (b - a)) : 0;
+  };
+  const greetingStart = log.find((m) => m.type === "audio" && m.turn === 1).at;
+  const greetingEnd = log.filter((m) => m.type === "played" && m.turn === 1 && m.done).at(-1).at;
+  const callerStart = log.find((m) => m.type === "speech_start" && m.at > greetingEnd).at;
+  const callerEnd = log.find((m) => m.type === "transcript" && m.at > callerStart).at - 700;
+  const window = (a, b) => `${((a - startedAt) / 1000).toFixed(1)}–${((b - startedAt) / 1000).toFixed(1)} s`;
+  return {
+    video,
+    size,
+    type,
+    seconds: audio.duration,
+    assistantRms: rms(greetingStart + 300, greetingEnd - 300),
+    assistantWindow: window(greetingStart + 300, greetingEnd - 300),
+    callerRms: rms(callerStart, callerEnd),
+    callerWindow: window(callerStart, callerEnd),
+  };
+}

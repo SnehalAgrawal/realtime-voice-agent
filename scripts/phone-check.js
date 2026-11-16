@@ -1,9 +1,10 @@
 // A simulated phone call, end to end: the real server and models, and a simulated Plivo
 // stream (test/plivo-simulator.js) that follows Plivo's documented protocol, in real time.
-// The caller's test audio is sent as phone audio (8 kHz mu-law by default), so this also
-// shows how the local speech-to-text does on telephone-quality speech.
+// By default it uses the original bot's setup (a 16 kHz PCM stream, replies as 8 kHz
+// mu-law). The caller's test audio first goes through an 8 kHz mu-law "phone line", as
+// any call does, so this also shows how the local speech-to-text does on phone audio.
 //
-//   npm run check:phone [-- --format audio/x-l16;rate=16000] [-- --out results/phone]
+//   npm run check:phone [-- --format audio/x-mulaw;rate=8000] [-- --out results/phone]
 //
 // It is not a live call: no Plivo account is involved, and real phone networks add their
 // own delay and audio processing.
@@ -12,17 +13,21 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { loadConfig, loadEnvFile } from "../src/config.js";
 import { startServer } from "../src/server.js";
-import { decodeWav, encodeWav, resample } from "../src/speech/pcm.js";
+import { decodeMuLaw, decodeWav, encodeMuLaw, encodeWav, resample } from "../src/speech/pcm.js";
 import { PlivoSimulator } from "../test/plivo-simulator.js";
 
 const { values: args } = parseArgs({
   options: {
-    format: { type: "string", default: "audio/x-mulaw;rate=8000" },
+    format: { type: "string", default: "audio/x-l16;rate=16000" },
     out: { type: "string" },
   },
 });
 
-const clip = async (id) => decodeWav(await readFile(new URL(`../test/audio/${id}.wav`, import.meta.url))).samples;
+/** A test clip as it arrives over a phone line: 8 kHz mu-law, back at 16 kHz. */
+const clip = async (id) => {
+  const { samples } = decodeWav(await readFile(new URL(`../test/audio/${id}.wav`, import.meta.url)));
+  return resample(decodeMuLaw(encodeMuLaw(resample(samples, 16000, 8000))), 8000, 16000);
+};
 const manifest = JSON.parse(await readFile(new URL("../test/audio/manifest.json", import.meta.url), "utf8"));
 const leadTicks = manifest.leadMs / 20;
 
@@ -72,7 +77,9 @@ sim.close();
 
 const playAudio = sim.received.filter((m) => m.event === "playAudio");
 const checkpoints = sim.received.filter((m) => m.event === "checkpoint");
-console.log(`\nplayAudio messages ${playAudio.length} (largest payload ${Math.max(...playAudio.map((m) => m.media.payload.length))} base64 characters), checkpoints ${checkpoints.length}, format mismatches ${sim.received.filter((m) => m.event === "format_mismatch").length}`);
+const replyFormats = [...new Set(playAudio.map((m) => `${m.media.contentType} ${m.media.sampleRate} Hz`))];
+console.log(`\nStream ${args.format}; replies sent as ${replyFormats.join(", ")}`);
+console.log(`playAudio messages ${playAudio.length} (largest payload ${Math.max(...playAudio.map((m) => m.media.payload.length))} base64 characters), checkpoints ${checkpoints.length}`);
 console.log(`Barge-in: clearAudio arrived ${speechToClearMs} ms after the caller started speaking`);
 
 if (args.out) {

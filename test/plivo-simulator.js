@@ -12,9 +12,18 @@ import { resample } from "../src/speech/pcm.js";
 const TICK_MS = 20;
 
 export class PlivoSimulator {
-  constructor(url, { contentType = "audio/x-mulaw;rate=8000" } = {}) {
+  /**
+   * @param {string} url
+   * @param {object} [options]
+   * @param {string} [options.contentType]  the stream's format
+   * @param {boolean} [options.confirmCheckpoints]  answer checkpoints with playedStream (false: as if Plivo ignored them)
+   * @param {boolean} [options.describeFormat]  include mediaFormat in the start message
+   */
+  constructor(url, { contentType = "audio/x-l16;rate=16000", confirmCheckpoints = true, describeFormat = true } = {}) {
     this.url = url;
     this.format = { contentType, ...PLIVO_FORMATS[contentType] };
+    this.confirmCheckpoints = confirmCheckpoints;
+    this.describeFormat = describeFormat;
     this.frame = (this.format.sampleRate * TICK_MS) / 1000;
     this.streamId = randomUUID();
     this.sequence = 0;
@@ -43,7 +52,7 @@ export class PlivoSimulator {
         streamId: this.streamId,
         accountId: "SIMULATED",
         tracks: ["inbound"],
-        mediaFormat: { encoding: this.format.encoding, sampleRate: this.format.sampleRate },
+        ...(this.describeFormat ? { mediaFormat: { encoding: this.format.encoding, sampleRate: this.format.sampleRate } } : {}),
       },
       extra_headers: "",
     });
@@ -80,7 +89,7 @@ export class PlivoSimulator {
       const head = this.playback[0];
       if (head.checkpoint) {
         this.playback.shift();
-        this.#send({ event: "playedStream", streamId: this.streamId, name: head.checkpoint });
+        if (this.confirmCheckpoints) this.#send({ event: "playedStream", streamId: this.streamId, name: head.checkpoint });
         continue;
       }
       const take = Math.min(this.frame - filled, head.samples.length);
@@ -115,12 +124,14 @@ export class PlivoSimulator {
   #onMessage(message) {
     this.received.push({ tick: this.ticks, ...message });
     if (message.event === "playAudio") {
+      // Played in the message's own format: the original bot sent 8 kHz mu-law on a 16 kHz
+      // PCM stream, and that played on live calls.
       const { contentType, sampleRate, payload } = message.media;
-      if (contentType !== this.format.encoding || sampleRate !== this.format.sampleRate) {
-        this.received.push({ tick: this.ticks, event: "format_mismatch", contentType, sampleRate });
-        return;
+      const format = { encoding: contentType, sampleRate: Number(sampleRate) };
+      if (contentType !== this.format.encoding || format.sampleRate !== this.format.sampleRate) {
+        this.received.push({ tick: this.ticks, event: "format_differs_from_stream", contentType, sampleRate });
       }
-      this.playback.push({ samples: decodePayload(payload, this.format) });
+      this.playback.push({ samples: resample(decodePayload(payload, format), format.sampleRate, this.format.sampleRate) });
     } else if (message.event === "checkpoint") {
       this.playback.push({ checkpoint: message.name });
     } else if (message.event === "clearAudio") {

@@ -2,8 +2,11 @@
 // each turn with its latency. Every message is also kept in window.voiceLog, which the
 // automated browser check reads.
 
+import { createRecordingMix, download, startRecording } from "./recorder.js";
+
 const $ = (selector) => document.querySelector(selector);
 const startButton = $("#start");
+const recordButton = $("#record");
 const statusLine = $("#status");
 const providersLine = $("#providers");
 const turnsList = $("#turns");
@@ -12,8 +15,41 @@ window.voiceLog = [];
 /** Microphone frames sent and their peak level (0 to 1), for the automated check. */
 window.voiceStats = { micFrames: 0, micPeak: 0 };
 let connection = null;
+let recording = null;
 
 startButton.addEventListener("click", () => (connection ? stop() : start()));
+recordButton.addEventListener("click", () => (recording ? stopRecording() : record()));
+
+async function record() {
+  if (!connection) return;
+  recordButton.disabled = true;
+  try {
+    recording = await startRecording(connection.recordingMix, {
+      onStop: ({ blob, video }) => {
+        // Kept for the automated check, which decodes it.
+        window.voiceRecording = { blob, video, size: blob.size, type: blob.type };
+        download(blob);
+      },
+    });
+  } catch (error) {
+    setStatus(`Could not record: ${error.message}`);
+    return;
+  } finally {
+    recordButton.disabled = !connection;
+  }
+  window.voiceStats.recordingStartedAt = performance.now();
+  recordButton.textContent = "Stop and save recording";
+  recordButton.classList.add("recording");
+  setStatus(recording.video ? "Recording this tab and both voices" : "Recording both voices (audio only)");
+}
+
+async function stopRecording() {
+  const current = recording;
+  recording = null;
+  recordButton.textContent = "Record";
+  recordButton.classList.remove("recording");
+  if (current) await current.stop();
+}
 
 async function start() {
   startButton.disabled = true;
@@ -21,6 +57,7 @@ async function start() {
   try {
     connection = await connect();
     startButton.textContent = "End conversation";
+    recordButton.disabled = false;
     setStatus("Listening");
   } catch (error) {
     setStatus(error.name === "NotAllowedError" ? "Microphone access was blocked." : `Could not start: ${error.message}`);
@@ -76,10 +113,14 @@ async function connect() {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "played", ...data }));
   };
   socket.send(JSON.stringify({ type: "start" }));
-  return { context, stream, socket };
+  const recordingMix = createRecordingMix({ context, microphone: stream, assistant: player });
+  return { context, stream, socket, recordingMix };
 }
 
 async function stop() {
+  // Save any recording before the audio it records goes away.
+  await stopRecording();
+  recordButton.disabled = true;
   const current = connection;
   connection = null;
   startButton.textContent = "Start conversation";

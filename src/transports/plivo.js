@@ -10,11 +10,14 @@
 //   server → Plivo   playAudio {media: {contentType, sampleRate, payload}},
 //                    checkpoint {streamId, name}, clearAudio {streamId}
 //
-// Reply audio must use the stream's own format. Each piece (sentence) is sent as one or
-// more playAudio messages (Plivo recommends payloads of 16 KB or less) followed by a
-// checkpoint; Plivo answers with playedStream when that piece has played. Plivo does not
-// report how far into a piece the caller got, so on barge-in that is estimated from the
-// time since the piece started playing.
+// Defaults follow the original bot, which worked on live calls: Plivo streams 16 kHz PCM
+// (answer XML contentType audio/x-l16;rate=16000) and replies go out as 8 kHz mu-law.
+// Plivo's reference says playAudio must match the stream's format; PLIVO_PLAY_AUDIO=stream
+// does that instead. Each piece (sentence) is sent as playAudio messages of at most 16 KB
+// of base64, then a checkpoint; Plivo answers with playedStream when it has played. The
+// original bot never used checkpoints or clearAudio, so if no playedStream arrives,
+// playback is tracked by timing. Plivo does not report how far into a piece the caller
+// got, so on barge-in that is estimated from the time since the piece started playing.
 
 import { VoiceSession } from "../session.js";
 import { Endpointer } from "../speech/endpointer.js";
@@ -82,6 +85,9 @@ export function playAudioMessages(audio, format) {
 
 export const checkpointName = (turn, index) => `turn-${turn}-piece-${index}`;
 
+/** How long after a piece should have finished to stop waiting for its playedStream. */
+export const PLAYED_STREAM_GRACE_MS = 1500;
+
 /**
  * @param {import("ws").WebSocket} socket
  * @param {object} deps  as for handleBrowser, plus an optional clock
@@ -89,17 +95,20 @@ export const checkpointName = (turn, index) => `turn-${turn}-piece-${index}`;
 export function handlePlivo(socket, { providers, config, log = () => {}, createEndpointer = (vad) => new Endpointer(vad), clock = () => performance.now() }) {
   let streamId = null;
   let format = null;
+  let playFormat = null;
   let session = null;
   /** Pieces sent and not yet confirmed played, in order. */
   let playing = [];
+  let warnedNoPlayedStream = false;
 
   const send = (message) => {
     if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));
   };
+  const durationMs = (piece) => (piece.audio.samples.length / piece.audio.sampleRate) * 1000;
 
   const transport = {
     play({ turn, index, audio }) {
-      for (const message of playAudioMessages(audio, format)) send(message);
+      for (const message of playAudioMessages(audio, playFormat)) send(message);
       send({ event: "checkpoint", streamId, name: checkpointName(turn, index) });
       // If nothing is queued ahead of it, it starts playing now (plus network delay).
       playing.push({ turn, index, audio, startedAt: playing.length === 0 ? clock() : null });
@@ -125,6 +134,19 @@ export function handlePlivo(socket, { providers, config, log = () => {}, createE
     session.playback({ turn: done.turn, index: done.index, playedSamples: done.audio.samples.length, done: true });
   };
 
+  // Fallback: if Plivo never confirms a checkpoint, count a piece as played once its
+  // length plus a margin has passed, so turns still end and the history stays whole.
+  const fallback = setInterval(() => {
+    const head = playing[0];
+    if (!session || !head || head.startedAt === null) return;
+    if (clock() - head.startedAt < durationMs(head) + PLAYED_STREAM_GRACE_MS) return;
+    if (!warnedNoPlayedStream) {
+      warnedNoPlayedStream = true;
+      log("plivo: no playedStream for a checkpoint; tracking playback by timing instead");
+    }
+    onPlayed(checkpointName(head.turn, head.index));
+  }, 100);
+
   socket.on("message", (data) => {
     let message;
     try {
@@ -135,15 +157,19 @@ export function handlePlivo(socket, { providers, config, log = () => {}, createE
     }
     switch (message.event) {
       case "start": {
-        streamId = message.start?.streamId ?? null;
-        try {
-          format = formatOf(message.start?.mediaFormat);
-        } catch (error) {
-          log(`plivo: ${error.message}`);
-          socket.close(1003, "unsupported audio format");
-          return;
+        streamId = message.start?.streamId ?? message.streamId ?? null;
+        // The format asked for in the answer XML, unless the start message says otherwise.
+        // (The original bot never read it; a missing or unknown one is not a reason to drop the call.)
+        format = { contentType: config.plivo.contentType, ...PLIVO_FORMATS[config.plivo.contentType] };
+        if (message.start?.mediaFormat) {
+          try {
+            format = formatOf(message.start.mediaFormat);
+          } catch (error) {
+            log(`plivo: ${error.message}; assuming ${format.contentType}, as requested in the answer XML`);
+          }
         }
-        log(`plivo: call ${message.start?.callId ?? "?"} stream ${streamId} (${format.contentType})`);
+        playFormat = config.plivo.playAudio === "stream" ? format : PLIVO_FORMATS["audio/x-mulaw;rate=8000"];
+        log(`plivo: call ${message.start?.callId ?? "?"} stream ${streamId} (in ${format.contentType}, replies ${playFormat.encoding} ${playFormat.sampleRate} Hz)`);
         session = new VoiceSession({
           ...providers,
           endpointer: createEndpointer(config.vad),
@@ -181,6 +207,7 @@ export function handlePlivo(socket, { providers, config, log = () => {}, createE
   });
 
   socket.on("close", () => {
+    clearInterval(fallback);
     session?.interrupt("call ended");
     session?.removeAllListeners();
   });

@@ -68,9 +68,15 @@ export function loadConfig(env = process.env) {
     },
     bargeIn: boolean(env, "BARGE_IN", true),
     plivo: {
-      contentType: choice(env, "PLIVO_CONTENT_TYPE", ["audio/x-mulaw;rate=8000", "audio/x-l16;rate=8000", "audio/x-l16;rate=16000"], "audio/x-mulaw;rate=8000"),
+      // The defaults are what the original bot used on live calls: a 16 kHz PCM stream from
+      // Plivo, and replies sent as 8 kHz mu-law.
+      contentType: choice(env, "PLIVO_CONTENT_TYPE", ["audio/x-mulaw;rate=8000", "audio/x-l16;rate=8000", "audio/x-l16;rate=16000"], "audio/x-l16;rate=16000"),
+      // "mulaw-8000": replies as 8 kHz mu-law, as the original bot sent them.
+      // "stream": replies in the stream's own format, as Plivo's reference documents.
+      playAudio: choice(env, "PLIVO_PLAY_AUDIO", ["mulaw-8000", "stream"], "mulaw-8000"),
       // The WebSocket URL Plivo should connect to; by default built from the request's Host (e.g. a tunnel).
-      streamUrl: env.PLIVO_STREAM_URL || undefined,
+      // STREAM_URL is the original bot's name for it.
+      streamUrl: env.PLIVO_STREAM_URL || env.STREAM_URL || undefined,
       // If set, the stream URL carries ?token=..., and connections without it are refused.
       streamToken: env.PLIVO_STREAM_TOKEN || undefined,
     },

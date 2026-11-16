@@ -40,7 +40,8 @@ export async function startServer(config, { providers, log = (line) => console.l
 
   const server = createServer(async (req, res) => {
     const path = new URL(req.url, "http://localhost").pathname;
-    if (path === "/plivo/answer" && (req.method === "GET" || req.method === "POST")) {
+    // /answer.xml is the original bot's answer URL, kept so existing Plivo apps keep working.
+    if ((path === "/plivo/answer" || path === "/answer.xml") && (req.method === "GET" || req.method === "POST")) {
       req.resume();
       const streamUrl = new URL(config.plivo.streamUrl ?? `wss://${req.headers.host}/plivo`);
       if (config.plivo.streamToken) streamUrl.searchParams.set("token", config.plivo.streamToken);
@@ -61,16 +62,17 @@ export async function startServer(config, { providers, log = (line) => console.l
   });
 
   const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
-  const handlers = { "/browser": handleBrowser, "/plivo": handlePlivo };
+  // "/" is where the original bot's Plivo stream connected (STREAM_URL=wss://<host>).
+  const handlers = { "/browser": handleBrowser, "/plivo": handlePlivo, "/": handlePlivo };
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url, "http://localhost");
     const handler = handlers[url.pathname];
     if (!handler) return socket.destroy();
-    if (url.pathname === "/plivo" && config.plivo.streamToken && !sameSecret(url.searchParams.get("token"), config.plivo.streamToken)) {
+    if (handler === handlePlivo && config.plivo.streamToken && !sameSecret(url.searchParams.get("token"), config.plivo.streamToken)) {
       socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
       return;
     }
-    const kind = url.pathname.slice(1);
+    const kind = handler === handlePlivo ? "plivo" : "browser";
     sockets.handleUpgrade(req, socket, head, (ws) => {
       if (sessions.size >= config.maxSessions) {
         ws.close(1013, "Another conversation is in progress. Try again later.");

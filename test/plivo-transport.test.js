@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { createServer, request } from "node:http";
 import { after, before, test } from "node:test";
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { loadConfig } from "../src/config.js";
 import { startServer } from "../src/server.js";
 import {
@@ -71,8 +71,12 @@ let server;
 let url;
 let sim;
 let sessions = [];
+let logs = [];
+/** The configuration the next connection gets (tests change it). */
+let callConfig;
+const baseConfig = { ...loadConfig({}), greeting: "Hello, thanks for calling." };
+
 before(async () => {
-  const config = { ...loadConfig({}), greeting: "Hello, thanks for calling." };
   const providers = {
     llm: fakeLLM("One two three four five six seven eight nine ten. Eleven twelve."),
     stt: { name: "fake-stt", transcribe: async () => ({ text: "Tell me something." }) },
@@ -84,7 +88,7 @@ before(async () => {
   wss.on("connection", (socket) => {
     socket.on("session", (session) => sessions.push(session));
     // The simulator's clock: 20 ms per tick, so barge-in estimates are deterministic.
-    handlePlivo(socket, { providers, config, createEndpointer: loudnessEndpointer, clock: () => (sim?.ticks ?? 0) * 20 });
+    handlePlivo(socket, { providers, config: callConfig, log: (line) => logs.push(line), createEndpointer: loudnessEndpointer, clock: () => (sim?.ticks ?? 0) * 20 });
   });
   await new Promise((resolve) => http.listen(0, "127.0.0.1", resolve));
   url = `ws://127.0.0.1:${http.address().port}`;
@@ -109,38 +113,89 @@ async function run(done, limit = 2000) {
 
 const loud = (seconds) => new Int16Array(16000 * seconds).fill(20000);
 
-for (const contentType of Object.keys(PLIVO_FORMATS)) {
-  test(`a call in ${contentType}: greeting, a turn, checkpoints answered, history kept`, async () => {
-    sessions = [];
-    sim = new PlivoSimulator(url, { contentType });
-    await sim.connect();
-    const ends = [];
-    await run(() => sessions.length > 0);
-    sessions[0].on("turn_end", (e) => ends.push(e));
-    await run(() => ends.length === 1);
-    assert.equal(ends[0].outcome, "completed", "greeting played to its checkpoint");
-
-    sim.say(loud(0.5));
-    await run(() => ends.length === 2);
-    assert.equal(ends[1].outcome, "completed");
-    assert.equal(ends[1].transcript, "Tell me something.");
-    assert.ok(ends[1].fromSpeechEnd.playback_done > 0);
-
-    const sent = sim.received.filter((m) => m.event === "playAudio");
-    assert.ok(sent.every((m) => m.media.contentType === sim.format.encoding && m.media.sampleRate === sim.format.sampleRate));
-    assert.deepEqual(
-      sim.received.filter((m) => m.event === "checkpoint").map((m) => m.name),
-      [checkpointName(1, 0), checkpointName(2, 0), checkpointName(2, 1)],
-    );
-    assert.ok(sim.received.filter((m) => m.event === "checkpoint").every((m) => m.streamId === sim.streamId));
-    assert.equal(sim.received.filter((m) => m.event === "format_mismatch").length, 0);
-    assert.deepEqual(sessions[0].messages.slice(1).map((m) => m.role), ["assistant", "user", "assistant"]);
-    sim.close();
-  });
+/** Greeting, then one spoken turn; returns the two turn summaries. */
+async function greetingAndOneTurn() {
+  const ends = [];
+  await run(() => sessions.length > 0);
+  sessions[0].on("turn_end", (e) => ends.push(e));
+  await run(() => ends.length === 1);
+  sim.say(loud(0.5));
+  await run(() => ends.length === 2);
+  return ends;
 }
+
+test("defaults match the original bot: a 16 kHz PCM stream, replies as 8 kHz mu-law", () => {
+  assert.equal(baseConfig.plivo.contentType, "audio/x-l16;rate=16000");
+  assert.equal(baseConfig.plivo.playAudio, "mulaw-8000");
+  assert.equal(loadConfig({ STREAM_URL: "wss://old.example" }).plivo.streamUrl, "wss://old.example");
+});
+
+for (const playAudio of ["mulaw-8000", "stream"]) {
+  for (const contentType of Object.keys(PLIVO_FORMATS)) {
+    test(`a call on a ${contentType} stream, replies ${playAudio === "stream" ? "in the stream's format" : "as 8 kHz mu-law"}`, async () => {
+      sessions = [];
+      callConfig = { ...baseConfig, plivo: { ...baseConfig.plivo, contentType, playAudio } };
+      sim = new PlivoSimulator(url, { contentType });
+      await sim.connect();
+      try {
+        const ends = await greetingAndOneTurn();
+        assert.equal(ends[0].outcome, "completed", "greeting played to its checkpoint");
+        assert.equal(ends[1].outcome, "completed");
+        assert.equal(ends[1].transcript, "Tell me something.");
+        assert.ok(ends[1].fromSpeechEnd.playback_done > 0);
+
+        const expected = playAudio === "stream" ? sim.format : PLIVO_FORMATS["audio/x-mulaw;rate=8000"];
+        const sent = sim.received.filter((m) => m.event === "playAudio");
+        assert.ok(sent.length > 0 && sent.every((m) => m.media.contentType === expected.encoding && m.media.sampleRate === expected.sampleRate));
+        assert.deepEqual(
+          sim.received.filter((m) => m.event === "checkpoint").map((m) => m.name),
+          [checkpointName(1, 0), checkpointName(2, 0), checkpointName(2, 1)],
+        );
+        assert.ok(sim.received.filter((m) => m.event === "checkpoint").every((m) => m.streamId === sim.streamId));
+        assert.deepEqual(sessions[0].messages.slice(1).map((m) => m.role), ["assistant", "user", "assistant"]);
+      } finally {
+        sim.close();
+      }
+    });
+  }
+}
+
+test("the original bot's setup works without a format in the start message", async () => {
+  sessions = [];
+  logs = [];
+  callConfig = baseConfig;
+  sim = new PlivoSimulator(url, { describeFormat: false });
+  await sim.connect();
+  try {
+    const ends = await greetingAndOneTurn();
+    assert.deepEqual(ends.map((e) => e.outcome), ["completed", "completed"]);
+    assert.ok(logs.some((l) => l.includes("in audio/x-l16;rate=16000, replies audio/x-mulaw 8000 Hz")));
+  } finally {
+    sim.close();
+  }
+});
+
+test("if Plivo never confirms checkpoints, playback is tracked by timing and turns still end", async () => {
+  sessions = [];
+  logs = [];
+  callConfig = baseConfig;
+  sim = new PlivoSimulator(url, { confirmCheckpoints: false });
+  await sim.connect();
+  try {
+    const ends = await greetingAndOneTurn();
+    assert.deepEqual(ends.map((e) => e.outcome), ["completed", "completed"]);
+    assert.ok(!sim.received.some((m) => m.event === "playedStream"));
+    assert.equal(logs.filter((l) => l.includes("tracking playback by timing")).length, 1, "warned once");
+    // The whole reply stays in the history.
+    assert.equal(sessions[0].messages.at(-1).content, "One two three four five six seven eight nine ten. Eleven twelve.");
+  } finally {
+    sim.close();
+  }
+});
 
 test("barge-in sends clearAudio and keeps the words played before it, estimated from time", async () => {
   sessions = [];
+  callConfig = baseConfig;
   sim = new PlivoSimulator(url);
   await sim.connect();
   await run(() => sessions.length > 0);
@@ -171,42 +226,83 @@ test("barge-in sends clearAudio and keeps the words played before it, estimated 
   }
 });
 
-test("a start with an unsupported format closes the stream", async () => {
+test("an unknown format in the start message falls back to the configured one instead of dropping the call", async () => {
+  sessions = [];
+  logs = [];
+  callConfig = baseConfig;
   sim = new PlivoSimulator(url);
-  sim.format = { encoding: "audio/x-mulaw", sampleRate: 16000 };
-  const closed = new Promise((resolve) => setTimeout(resolve, 1000));
+  sim.format = { ...sim.format, encoding: "audio/x-l16", sampleRate: 16000 };
+  const original = sim.connect.bind(sim);
+  sim.connect = async () => {
+    // Announce a format that does not exist, then stream 16 kHz PCM as configured.
+    sim.format = { contentType: "audio/x-l16;rate=16000", encoding: "audio/x-unknown", sampleRate: 16000 };
+    await original();
+    sim.format = { contentType: "audio/x-l16;rate=16000", ...PLIVO_FORMATS["audio/x-l16;rate=16000"] };
+  };
   await sim.connect();
-  const code = await Promise.race([new Promise((resolve) => sim.socket.on("close", (c) => resolve(c))), closed]);
-  assert.equal(code, 1003);
+  try {
+    const ends = await greetingAndOneTurn();
+    assert.deepEqual(ends.map((e) => e.outcome), ["completed", "completed"]);
+    assert.ok(logs.some((l) => l.includes("assuming audio/x-l16;rate=16000")));
+  } finally {
+    sim.close();
+  }
 });
 
-// --- Through the real server: answer URL and stream token ------------------------
+// --- Through the real server: answer URLs, stream paths, and the token -----------
+
+/** POSTs to the answer URL with a given Host header and returns the XML. */
+function answer(port, path, host) {
+  return new Promise((resolve) => {
+    request({ host: "127.0.0.1", port, path, method: "POST", headers: { host } }, (res) => {
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => resolve(body));
+    }).end("CallUUID=1");
+  });
+}
+
+const fakeProviders = () => ({
+  llm: fakeLLM("Hi."),
+  stt: { name: "s", transcribe: async () => ({ text: "" }) },
+  tts: { name: "t", synthesize: async () => ({ samples: new Int16Array(1), sampleRate: 8000 }) },
+});
 
 test("the server answers Plivo with stream XML, and refuses streams without the token", async () => {
-  const providers = { llm: fakeLLM("Hi."), stt: { name: "s", transcribe: async () => ({ text: "" }) }, tts: { name: "t", synthesize: async () => ({ samples: new Int16Array(1), sampleRate: 8000 }) } };
-  const config = { ...loadConfig({ PLIVO_STREAM_TOKEN: "s3cret", PLIVO_CONTENT_TYPE: "audio/x-l16;rate=16000" }), port: 0 };
-  const app = await startServer(config, { providers, log: () => {} });
+  const config = { ...loadConfig({ PLIVO_STREAM_TOKEN: "s3cret" }), port: 0 };
+  const app = await startServer(config, { providers: fakeProviders(), log: () => {} });
   try {
-    const xml = await new Promise((resolve) => {
-      request({ host: "127.0.0.1", port: app.port, path: "/plivo/answer", method: "POST", headers: { host: "abc.tunnel.example" } }, (res) => {
-        let body = "";
-        res.on("data", (c) => (body += c));
-        res.on("end", () => resolve(body));
-      }).end("CallUUID=1");
-    });
+    const xml = await answer(app.port, "/plivo/answer", "abc.tunnel.example");
     assert.match(xml, /contentType="audio\/x-l16;rate=16000">wss:\/\/abc\.tunnel\.example\/plivo\?token=s3cret<\/Stream>/);
+    for (const path of ["/plivo?token=wrong", "/plivo", "/", "/?token=nope"]) {
+      await assert.rejects(new PlivoSimulator(`ws://127.0.0.1:${app.port}${path}`).connect(), /403/, path);
+    }
+    for (const path of ["/plivo?token=s3cret", "/?token=s3cret"]) {
+      const socket = new WebSocket(`ws://127.0.0.1:${app.port}${path}`);
+      await new Promise((resolve, reject) => {
+        socket.once("open", resolve);
+        socket.once("error", reject);
+      });
+      socket.close();
+    }
+  } finally {
+    await app.close();
+  }
+});
 
-    await assert.rejects(new PlivoSimulator(`ws://127.0.0.1:${app.port}/plivo?token=wrong`).connect(), /403/);
-    await assert.rejects(new PlivoSimulator(`ws://127.0.0.1:${app.port}/plivo`).connect(), /403/);
-    const ok = new PlivoSimulator(`ws://127.0.0.1:${app.port}/plivo?token=s3cret`);
-    ok.socket = null;
-    const { WebSocket } = await import("ws");
-    const socket = new WebSocket(`ws://127.0.0.1:${app.port}/plivo?token=s3cret`);
-    await new Promise((resolve, reject) => {
-      socket.once("open", resolve);
-      socket.once("error", reject);
-    });
-    socket.close();
+test("the original bot's answer URL (/answer.xml), STREAM_URL, and root stream path still work", async () => {
+  const config = { ...loadConfig({ STREAM_URL: "wss://abc.ngrok.example" }), port: 0, greeting: "Hello." };
+  const app = await startServer(config, { providers: fakeProviders(), log: () => {} });
+  try {
+    const xml = await answer(app.port, "/answer.xml", "abc.ngrok.example");
+    assert.match(xml, /<Stream bidirectional="true" keepCallAlive="true" contentType="audio\/x-l16;rate=16000">wss:\/\/abc\.ngrok\.example\/<\/Stream>/);
+    // Plivo connects to the root path, as with the original bot.
+    sim = new PlivoSimulator(`ws://127.0.0.1:${app.port}/`, { describeFormat: false });
+    await sim.connect();
+    await run(() => sim.received.some((m) => m.event === "checkpoint"));
+    const greeting = sim.received.filter((m) => m.event === "playAudio");
+    assert.ok(greeting.length > 0 && greeting.every((m) => m.media.contentType === "audio/x-mulaw" && m.media.sampleRate === 8000));
+    sim.close();
   } finally {
     await app.close();
   }
