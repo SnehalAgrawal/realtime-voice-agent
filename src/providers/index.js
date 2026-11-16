@@ -1,6 +1,7 @@
 // Picks each stage's provider from the configuration. Local providers load their models,
 // so the speech factories are async.
 
+import { anthropicLLM } from "./llm/anthropic.js";
 import { ollamaLLM } from "./llm/ollama.js";
 import { openAICompatibleLLM } from "./llm/openai-compatible.js";
 import { googleSTT } from "./stt/google.js";
@@ -10,7 +11,7 @@ import { azureTTS } from "./tts/azure.js";
 import { localTTS } from "./tts/local.js";
 import { openAICompatibleTTS } from "./tts/openai-compatible.js";
 
-const LLMS = { ollama: ollamaLLM, "openai-compatible": openAICompatibleLLM };
+const LLMS = { ollama: ollamaLLM, "openai-compatible": openAICompatibleLLM, anthropic: anthropicLLM };
 const STTS = { local: localSTT, "openai-compatible": openAICompatibleSTT, google: googleSTT };
 const TTSS = { local: localTTS, "openai-compatible": openAICompatibleTTS, azure: azureTTS };
 

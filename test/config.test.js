@@ -33,11 +33,20 @@ test("any OpenAI-compatible provider is configured by base URL, model, and key",
       apiKey: "secret",
       temperature: 0.3,
       seed: undefined,
-      maxTokens: 512,
+      maxTokens: undefined,
+      effort: "low",
       numCtx: 8192,
     },
   );
   assert.equal(createLLM(config.llm).name, "openai-compatible:some-model");
+});
+
+test("Claude is configured by provider name and key; the model defaults to Claude Opus 5.5", () => {
+  const config = loadConfig({ LLM_PROVIDER: "anthropic", LLM_API_KEY: "sk-ant-test" });
+  assert.equal(config.llm.model, "claude-opus-5-5");
+  assert.equal(config.llm.baseUrl, undefined);
+  assert.equal(createLLM(config.llm).name, "anthropic:claude-opus-5-5");
+  assert.throws(() => loadConfig({ LLM_EFFORT: "extreme" }), /LLM_EFFORT must be one of/);
 });
 
 test("the OpenAI-compatible provider needs a model name", () => {

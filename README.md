@@ -202,12 +202,43 @@ Every stage is chosen by configuration: environment variables or a `.env` file (
 
 | Stage | Local (default) | Hosted, with an API key |
 |---|---|---|
-| LLM | Ollama (`qwen2.5:3b`) | any OpenAI-compatible chat API (`LLM_PROVIDER=openai-compatible`, base URL, model, key) |
+| LLM | Ollama (`qwen2.5:3b`) | OpenAI, or any OpenAI-compatible chat API (`LLM_PROVIDER=openai-compatible`); Claude (`LLM_PROVIDER=anthropic`) |
 | Speech-to-text | Moonshine base, English (sherpa-onnx) | any OpenAI-compatible transcription API; Google Cloud Speech-to-Text |
 | Text-to-speech | Kokoro-82M v1.0, voice `af_heart` (sherpa-onnx) | any OpenAI-compatible speech API; Azure AI Speech |
 | End of turn | Silero VAD (sherpa-onnx) | n/a |
 
-Every hosted provider is a plain `fetch` call, with no vendor SDK. The hosted speech providers are tested against a local mock server, using the request and response formats from each provider's documentation. They haven't been run against the live services in this repository (that needs keys), and their latency isn't measured here.
+Every hosted provider except Claude is a plain `fetch` call. Claude goes through Anthropic's official SDK (`@anthropic-ai/sdk`).
+
+The hosted providers are tested against local mock servers that use the request and response formats from each provider's documentation. They haven't been run against the live services in this repository (that needs keys), and their latency isn't measured here.
+
+### Using OpenAI or Claude
+
+Set the stage's provider and key in `.env`. Everything else stays the same.
+
+```bash
+# OpenAI for the conversation (speech can stay local)
+LLM_PROVIDER=openai-compatible
+LLM_MODEL=gpt-4o-mini
+LLM_API_KEY=your-openai-key
+
+# Claude for the conversation
+LLM_PROVIDER=anthropic
+LLM_API_KEY=your-anthropic-key      # or set ANTHROPIC_API_KEY
+# LLM_MODEL=claude-opus-5-5         # the default
+# LLM_EFFORT=low                    # thinking depth: low, medium, high, xhigh, max
+
+# OpenAI for speech too
+STT_PROVIDER=openai-compatible
+STT_API_KEY=your-openai-key
+TTS_PROVIDER=openai-compatible
+TTS_API_KEY=your-openai-key
+```
+
+Claude is used for the conversation only, because Anthropic has no speech-to-text or text-to-speech API. A few settings work differently with it:
+- **Thinking:** it can't be turned off on Claude Opus 5.5. `LLM_EFFORT` sets how much Claude thinks, and the default is `low`, because a spoken reply is a few sentences of conversation.
+- **Maximum reply length:** thinking counts towards it, so the default is 16,000 tokens.
+- **Sampling settings:** `LLM_TEMPERATURE` and `LLM_SEED` are ignored, because current Claude models reject them.
+- **Declined requests:** if Claude declines a request, the API retries it on a fallback model chosen for the reason (Anthropic's server-side fallbacks).
 
 Ollama is called through its native API rather than its OpenAI-compatible one, because only the native API accepts the context length (`LLM_NUM_CTX`). Without it, a long conversation is cut to the server's default context, with no error.
 

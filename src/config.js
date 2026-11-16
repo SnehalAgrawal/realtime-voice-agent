@@ -11,7 +11,7 @@ export const DEFAULT_SYSTEM_PROMPT = [
 export const DEFAULT_GREETING = "Hi! I'm a voice assistant running on this computer. What would you like to talk about?";
 
 const PROVIDERS = {
-  llm: ["ollama", "openai-compatible"],
+  llm: ["ollama", "openai-compatible", "anthropic"],
   stt: ["local", "openai-compatible", "google"],
   tts: ["local", "openai-compatible", "azure"],
 };
@@ -19,6 +19,7 @@ const PROVIDERS = {
 const LLM_DEFAULTS = {
   ollama: { baseUrl: "http://127.0.0.1:11434", model: "qwen2.5:3b" },
   "openai-compatible": { baseUrl: "https://api.openai.com/v1", model: undefined },
+  anthropic: { baseUrl: undefined, model: "claude-opus-5-5" },
 };
 
 /** Builds the configuration from an environment (process.env by default). */
@@ -39,7 +40,10 @@ export function loadConfig(env = process.env) {
       apiKey: env.LLM_API_KEY || undefined,
       temperature: number(env, "LLM_TEMPERATURE"),
       seed: integer(env, "LLM_SEED"),
-      maxTokens: integer(env, "LLM_MAX_TOKENS", 512),
+      // Each provider has its own default (512; 16,000 for Claude, whose thinking counts against it).
+      maxTokens: integer(env, "LLM_MAX_TOKENS"),
+      // Claude only: thinking depth (low, medium, high, xhigh, max).
+      effort: choice(env, "LLM_EFFORT", ["low", "medium", "high", "xhigh", "max"], "low"),
       numCtx: integer(env, "LLM_NUM_CTX", 8192),
     },
     stt: {
