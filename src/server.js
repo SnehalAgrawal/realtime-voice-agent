@@ -1,9 +1,11 @@
-// The HTTP and WebSocket server: serves the browser client from public/ and connects
-// each browser WebSocket (/browser) to a voice session. Models are loaded once and shared.
+// The HTTP and WebSocket server. Serves the browser client from public/, connects each
+// browser WebSocket (/browser) and each Plivo call (/plivo, answer XML at /plivo/answer)
+// to a voice session. Models are loaded once and shared.
 //
 // One conversation at a time by default (MAX_SESSIONS): local models on a laptop are
 // sized for one caller, and a second caller would slow the first one's replies.
 
+import { timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -12,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { createLLM, createSTT, createTTS } from "./providers/index.js";
 import { handleBrowser } from "./transports/browser.js";
+import { answerXml, handlePlivo } from "./transports/plivo.js";
 
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const TYPES = {
@@ -37,6 +40,14 @@ export async function startServer(config, { providers, log = (line) => console.l
 
   const server = createServer(async (req, res) => {
     const path = new URL(req.url, "http://localhost").pathname;
+    if (path === "/plivo/answer" && (req.method === "GET" || req.method === "POST")) {
+      req.resume();
+      const streamUrl = new URL(config.plivo.streamUrl ?? `wss://${req.headers.host}/plivo`);
+      if (config.plivo.streamToken) streamUrl.searchParams.set("token", config.plivo.streamToken);
+      res.writeHead(200, { "content-type": "application/xml" });
+      res.end(answerXml(streamUrl.toString(), config.plivo.contentType));
+      return;
+    }
     const file = normalize(join(PUBLIC, path === "/" ? "index.html" : path));
     const type = TYPES[extname(file)];
     if (req.method !== "GET" || !file.startsWith(PUBLIC) || !type) return notFound(res);
@@ -49,21 +60,28 @@ export async function startServer(config, { providers, log = (line) => console.l
     createReadStream(file).pipe(res);
   });
 
-  const browsers = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
+  const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
+  const handlers = { "/browser": handleBrowser, "/plivo": handlePlivo };
   server.on("upgrade", (req, socket, head) => {
-    const path = new URL(req.url, "http://localhost").pathname;
-    if (path !== "/browser") return socket.destroy();
-    browsers.handleUpgrade(req, socket, head, (ws) => {
+    const url = new URL(req.url, "http://localhost");
+    const handler = handlers[url.pathname];
+    if (!handler) return socket.destroy();
+    if (url.pathname === "/plivo" && config.plivo.streamToken && !sameSecret(url.searchParams.get("token"), config.plivo.streamToken)) {
+      socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
+      return;
+    }
+    const kind = url.pathname.slice(1);
+    sockets.handleUpgrade(req, socket, head, (ws) => {
       if (sessions.size >= config.maxSessions) {
         ws.close(1013, "Another conversation is in progress. Try again later.");
         return;
       }
       sessions.add(ws);
-      log(`browser connected (${sessions.size} active)`);
-      handleBrowser(ws, { providers, config, log: (line) => log(`  ${line}`) });
+      log(`${kind} connected (${sessions.size} active)`);
+      handler(ws, { providers, config, log: (line) => log(`  ${line}`) });
       ws.on("close", () => {
         sessions.delete(ws);
-        log(`browser disconnected (${sessions.size} active)`);
+        log(`${kind} disconnected (${sessions.size} active)`);
       });
     });
   });
@@ -76,11 +94,17 @@ export async function startServer(config, { providers, log = (line) => console.l
     providers,
     close: () =>
       new Promise((resolve) => {
-        for (const ws of browsers.clients) ws.terminate();
-        browsers.close();
+        for (const ws of sockets.clients) ws.terminate();
+        sockets.close();
         server.close(resolve);
       }),
   };
+}
+
+function sameSecret(given, expected) {
+  const a = Buffer.from(given ?? "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 function notFound(res) {

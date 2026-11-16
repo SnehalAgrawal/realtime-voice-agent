@@ -17,7 +17,8 @@
     "test": "node --test",
     "lint": "eslint .",
     "check": "npm run lint && npm test",
-    "check:browser": "node scripts/browser-check.js"
+    "check:browser": "node scripts/browser-check.js",
+    "check:phone": "node scripts/phone-check.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

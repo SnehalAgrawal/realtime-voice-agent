@@ -7,7 +7,7 @@ A voice agent that listens, thinks, and speaks in real time: speech-to-text, an 
 > 1. **Foundation** (done): the reply pipeline, ordered playback, a per-turn timeline, provider interfaces, LLM providers, and tests.
 > 2. **Local speech and barge-in** (done): voice activity detection, speech-to-text, text-to-speech, hosted speech providers, and a conversation harness.
 > 3. **Browser client** (done): talk to it from a laptop microphone, and see each reply's latency by stage.
-> 4. The phone path: Plivo Media Streams, tested against a simulated call.
+> 4. **Phone calls** (done): Plivo Audio Streams, tested against a simulated call (no live call yet).
 > 5. Measurements: latency per stage on recorded test audio, and what changes it.
 
 ## How a turn works
@@ -47,6 +47,7 @@ npm run converse        # a scripted spoken conversation on the test audio (see 
 npm run chat            # a text chat through the same reply pipeline
 npm run check           # lint and tests (no network; the model tests run once the models are downloaded)
 npm run check:browser   # the browser client end to end in headless Chrome (see below)
+npm run check:phone     # a simulated Plivo phone call end to end (see below)
 ```
 
 ### The conversation harness
@@ -81,6 +82,42 @@ One WebSocket per conversation, at `/browser` ([`src/transports/browser.js`](src
 Two audio worklets do the real-time work on the browser's audio thread ([`public/worklets.js`](public/worklets.js)):
 - **The microphone worklet** downsamples to 16 kHz and sends 20 ms frames.
 - **The player worklet** plays pieces in order, resampling each one, and reports its progress. That progress is how barge-in knows what you heard.
+
+## Phone calls (Plivo)
+
+The same session also answers phone calls through [Plivo Audio Streams](https://www.plivo.com/docs/voice-agents/audio-streaming/concepts/audio-streaming-guide) ([`src/transports/plivo.js`](src/transports/plivo.js)):
+- **The answer URL** (`/plivo/answer`) returns a `<Stream bidirectional="true" keepCallAlive="true">` element.
+- **Plivo** then streams the caller's audio to `/plivo`, and plays back what the server sends.
+
+How it maps to Plivo's protocol ([reference](https://docs.plivo.com/docs/voice-agents/audio-streaming/concepts/audio-streaming-reference)):
+
+| | |
+|---|---|
+| Audio format | One of the three Plivo supports (`PLIVO_CONTENT_TYPE`): 8 kHz mu-law (the default, as on a phone line), or 16-bit PCM at 8 or 16 kHz. Reply audio must use the stream's own format, so it is converted to it. |
+| Reply audio | Each sentence is sent as `playAudio` messages of at most 16 KB of base64, as Plivo recommends, followed by a `checkpoint` named after the turn and sentence. |
+| Playback progress | Plivo answers each checkpoint with `playedStream` once the audio before it has played. That is how a turn knows its reply finished. |
+| Barge-in | `clearAudio` empties Plivo's queue. Plivo doesn't say how far into the current sentence the caller got, so the history keeps an estimate based on the time since that sentence started playing. |
+
+**Tested against a simulation, not a live call.** It hasn't been run on a Plivo account yet. [`test/plivo-simulator.js`](test/plivo-simulator.js) plays Plivo's part as its reference documents it: `start`, 20 ms `media` frames, a queue for `playAudio`, `playedStream` at each checkpoint, and `clearedAudio`. The tests run calls in all three formats against it, including barge-in.
+
+`npm run check:phone` runs a whole call in real time, with the real models and the caller's test audio sent as 8 kHz mu-law:
+- the three caller lines were transcribed exactly as on the 16 kHz browser path;
+- the largest `playAudio` payload was exactly at the 16 KB limit;
+- `clearAudio` went out 420 ms after the interruption began.
+
+Some things the reference doesn't document, so the code doesn't rely on them:
+- the shape of a `stop` event (a closed socket also ends the call);
+- whether `playAudio` messages always play in the order sent;
+- exactly when `playedStream` fires.
+
+A real network also adds its own delay.
+
+To try it with a real number:
+1. Expose the server with a tunnel (for example `cloudflared tunnel --url http://127.0.0.1:8080`).
+2. Set `PLIVO_STREAM_TOKEN` to a random value.
+3. Point a Plivo application's answer URL at `https://<tunnel host>/plivo/answer`.
+
+The token is added to the stream URL, and connections without it are refused. Plivo also signs its requests (`X-Plivo-Signature-V3`); checking that signature isn't implemented here.
 
 ## Providers
 

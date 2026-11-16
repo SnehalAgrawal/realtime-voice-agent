@@ -67,6 +67,13 @@ export function loadConfig(env = process.env) {
       prerollMs: integer(env, "VAD_PREROLL_MS", 300),
     },
     bargeIn: boolean(env, "BARGE_IN", true),
+    plivo: {
+      contentType: choice(env, "PLIVO_CONTENT_TYPE", ["audio/x-mulaw;rate=8000", "audio/x-l16;rate=8000", "audio/x-l16;rate=16000"], "audio/x-mulaw;rate=8000"),
+      // The WebSocket URL Plivo should connect to; by default built from the request's Host (e.g. a tunnel).
+      streamUrl: env.PLIVO_STREAM_URL || undefined,
+      // If set, the stream URL carries ?token=..., and connections without it are refused.
+      streamToken: env.PLIVO_STREAM_TOKEN || undefined,
+    },
     reply: {
       chunking: { mode: choice(env, "CHUNKING", ["sentence", "clause", "whole"], "sentence") },
       ttsConcurrency: integer(env, "TTS_CONCURRENCY", 1),
