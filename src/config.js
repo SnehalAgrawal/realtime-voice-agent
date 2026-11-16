@@ -8,6 +8,8 @@ export const DEFAULT_SYSTEM_PROMPT = [
   "If you did not catch what the caller said, ask them to repeat it.",
 ].join(" ");
 
+export const DEFAULT_GREETING = "Hi! I'm a voice assistant running on this computer. What would you like to talk about?";
+
 const PROVIDERS = {
   llm: ["ollama", "openai-compatible"],
   stt: ["local", "openai-compatible", "google"],
@@ -25,7 +27,11 @@ export function loadConfig(env = process.env) {
   const llmDefaults = LLM_DEFAULTS[llmProvider];
   return {
     port: integer(env, "PORT", 8080),
+    // Local only by default: the server is reachable from this computer, not the network.
+    host: env.HOST || "127.0.0.1",
+    maxSessions: integer(env, "MAX_SESSIONS", 1),
     systemPrompt: env.SYSTEM_PROMPT?.trim() || DEFAULT_SYSTEM_PROMPT,
+    greeting: env.GREETING === undefined ? DEFAULT_GREETING : env.GREETING.trim(),
     llm: {
       provider: llmProvider,
       baseUrl: env.LLM_BASE_URL || llmDefaults.baseUrl,

@@ -17,6 +17,16 @@ export default [
     },
   },
   {
+    files: ["public/**/*.js"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    files: ["public/worklets.js"],
+    languageOptions: {
+      globals: { ...globals.audioWorklet },
+    },
+  },
+  {
     files: ["**/*.cjs"],
     languageOptions: { sourceType: "commonjs" },
   },

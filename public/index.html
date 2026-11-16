@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voice agent</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Voice agent</h1>
+        <p class="lead">Talk to an assistant running on this computer: speech-to-text, a language model, and a voice, with no cloud services. Each reply shows how long it took to start, stage by stage.</p>
+        <p class="note">Use headphones. Without them, the assistant may hear its own voice through your microphone and interrupt itself.</p>
+      </header>
+      <section class="controls">
+        <button id="start" type="button">Start conversation</button>
+        <p id="status" role="status" aria-live="polite">Not started</p>
+      </section>
+      <p id="providers" class="providers"></p>
+      <ol id="turns" class="turns" aria-label="Conversation, newest first"></ol>
+    </main>
+  </body>
+</html>

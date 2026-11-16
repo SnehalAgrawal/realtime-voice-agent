@@ -9,20 +9,24 @@
     "node": ">=24"
   },
   "scripts": {
+    "start": "node src/main.js",
     "chat": "node scripts/chat.js",
     "converse": "node scripts/converse.js",
     "models": "node scripts/download-models.js",
     "test-audio": "node scripts/make-test-audio.js",
     "test": "node --test",
     "lint": "eslint .",
-    "check": "npm run lint && npm test"
+    "check": "npm run lint && npm test",
+    "check:browser": "node scripts/browser-check.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint": "10.14.0",
-    "globals": "17.14.0"
+    "globals": "17.14.0",
+    "playwright-core": "1.64.1"
   },
   "dependencies": {
-    "sherpa-onnx-node": "2.0.1"
+    "sherpa-onnx-node": "2.0.1",
+    "ws": "8.22.1"
   }
 }
