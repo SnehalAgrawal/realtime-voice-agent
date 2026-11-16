@@ -1,19 +1,22 @@
 {
-  "name": "streaming-voicebot",
-  "version": "1.0.0",
-  "description": "A streaming voice bot integrating Plivo Media Streams, Google STT/TTS and OpenAI GPT",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "chat": "node server.js"
+  "name": "realtime-voice-agent",
+  "version": "0.1.0",
+  "description": "A real-time voice agent: speech-to-text, an LLM, and text-to-speech streamed over WebSockets, runnable locally with no accounts, with per-stage latency measured.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
   },
-  "dependencies": {
-    "@google-cloud/speech": "^4.3.0",
-    "dotenv": "^16.0.3",
-    "microsoft-cognitiveservices-speech-sdk": "^1.43.1",
-    "openai": "^4.2.1",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.51.0",
-    "ws": "^8.12.0",
-    "express": "^4.18.2"
+  "scripts": {
+    "chat": "node scripts/chat.js",
+    "test": "node --test",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0"
   }
 }

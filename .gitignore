@@ -1,0 +1,6 @@
+node_modules/
+.env
+# Downloaded speech models (fetched by a script) and local measurement output
+models/
+results/
+.DS_Store
