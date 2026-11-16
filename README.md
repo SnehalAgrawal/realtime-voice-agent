@@ -8,7 +8,7 @@ A voice agent that listens, thinks, and speaks in real time: speech-to-text, an 
 > 2. **Local speech and barge-in** (done): voice activity detection, speech-to-text, text-to-speech, hosted speech providers, and a conversation harness.
 > 3. **Browser client** (done): talk to it from a laptop microphone, and see each reply's latency by stage.
 > 4. **Phone calls** (done): Plivo Audio Streams, tested against a simulated call (no live call yet).
-> 5. Measurements: latency per stage on recorded test audio, and what changes it.
+> 5. **Measurements** (done): latency per stage on the test audio, and what changes it. See [Measurements](#measurements).
 
 ## How a turn works
 
@@ -119,6 +119,60 @@ To try it with a real number:
 
 The token is added to the stream URL, and connections without it are refused. Plivo also signs its requests (`X-Plivo-Signature-V3`); checking that signature isn't implemented here.
 
+## Measurements
+
+Recorded on 2026-11-16 with `npm run measure`. Setup:
+- **Machine:** Apple M4 Pro, 24 GiB, macOS 26.6.2, on mains power.
+- **Software:** Node 24.16.0, sherpa-onnx-node 2.0.1, Ollama 0.40.16 (`qwen2.5:3b` 357c53fb659c, `llama3.2:3b` a80c4f17acd5), commit `4f64999`.
+- **Model settings:** temperature 0, seed 42.
+
+Every variant ran the scripted conversation (five caller lines and one interruption) twice, interleaved. All the data, including every turn of every run, is in [`measurements/2026-11-16/`](measurements/2026-11-16/).
+
+**Response time** here means the time from the end of the caller's speech to the first reply audio being handed to the transport. It doesn't include the network, or the client's playback buffer.
+
+| Change from the baseline | Median response time, ms (range) | Where the time went |
+|---|---|---|
+| none: 500 ms of silence ends a turn, sentence by sentence, Moonshine base, `qwen2.5:3b`, Kokoro float32 | **1,201** (946–1,783) | waiting for silence 500, speech-to-text 50, first token 74, first sentence 109, voice 473 |
+| end of turn after 300 ms of silence | **986** (747–1,589) | waiting −200 |
+| end of turn after 800 ms of silence | **1,506** (1,247–2,078) | waiting +300 |
+| synthesise the whole reply at once | **1,563** (1,249–2,384) | voice 799, first sentence 155 (the whole reply) |
+| synthesise clauses as well as sentences | **1,199** (946–1,850) | no change: none of `qwen2.5:3b`'s first sentences had a clause break late enough to split |
+| Moonshine tiny for speech-to-text | **1,193** (929–1,745) | speech-to-text 34 instead of 50 |
+| Kokoro int8 for the voice | **1,954** (1,352–3,499) | voice 1,230 |
+| `llama3.2:3b` as the LLM | **1,520** (1,237–2,338) | voice 698: its first sentences are longer (median 11 words, up to 29) |
+
+Each stage's figure is its own median, so the stages don't add up exactly to the median total. In this batch, the medians of each variant's two runs were within 35 ms of each other, and every reply was the same word for word in both runs. Differences much smaller than that are noise.
+
+**What moves response time on this setup:**
+
+- **Waiting for silence, and voicing the first sentence, are most of it.** Speech-to-text (50 ms) and the model's first token (74 ms) are small with local models.
+- **The silence threshold moves the response time one for one.** With 300 ms, no test line was cut off early: every transcript had the same words as with 500 ms, and only one line's punctuation changed. But the test speech is synthetic and pauses less than people do, so this doesn't show that 300 ms is safe with real callers.
+- **What decides the voice stage is the length of the first piece of text.** Synthesising the whole reply added about 360 ms.
+
+  Clause chunking only helps when first sentences are long. A second batch measured `llama3.2:3b` with and without it, two runs each, interleaved. It ran on the same commit plus that variant's definition, which is committed with the results ([`measurements/2026-11-16-llama-clause/`](measurements/2026-11-16-llama-clause/)):
+  - The median dropped from 1,491 to 1,252 ms.
+  - In the first run both variants gave identical replies, so the turns can be compared one to one. Clauses were faster on five of six turns, by 222 to 757 ms, and 22 ms slower on the sixth.
+- **Smaller models aren't automatically faster.** Kokoro int8 made the voice stage 2.6 times slower (1,230 against 473 ms). Moonshine tiny saved 16 ms, but doubled the errors on phone-quality audio (see below).
+
+**Barge-in:** in all 20 runs, the assistant's audio stopped 400 to 440 ms after the caller started speaking. Most of that is the voice detector confirming speech: 250 ms of minimum speech, plus its 32 ms analysis windows.
+
+**What's kept in the history matters to the next reply.** In the second run of the llama-with-clauses variant, the interruption landed one word later. The history kept "Racing thoughts can be really frustrating when" instead of "…really frustrating", and every later reply in that conversation came out different.
+
+**Word error rate** on the six test lines (60 words), transcribing each line after the endpointer has cut it out:
+
+| Model | 16 kHz | 8 kHz mu-law (phone) |
+|---|---|---|
+| Moonshine base | 1 error (2%) | 2 errors (3%) |
+| Moonshine tiny | 2 errors (3%) | 4 errors (7%) |
+
+Both models hear "Hi" as "I". On phone audio, Moonshine base also added a "10." in front of "How many minutes…". Moonshine tiny wrote "3" for "three" (counted as an error, since the words are compared as written), and on phone audio wrote "O'kea" and "to-day".
+
+**Limits of these numbers:**
+- The caller audio is synthetic, so it's cleaner than real speech.
+- There's no network in the loop.
+- It's one machine, with six turns per run.
+- A different computer, model, or voice will give different numbers. The method and the scripts carry over.
+
 ## Providers
 
 Every stage is chosen by configuration: environment variables or a `.env` file (see [`.env.example`](.env.example)). With nothing set, everything runs locally.
@@ -160,7 +214,7 @@ Kokoro's own text frontend derives those endings from the base word, but the dic
 
 Words that are still unknown (`Ollama`, for example) are reported with each sentence instead of disappearing unnoticed.
 
-**The smaller Kokoro model is the slower one on this Mac.** On an Apple M4 Pro CPU, the int8 model synthesised a short sentence (1.9 s of audio) in 1,000 to 1,200 ms at every thread count from 1 to 6. The float32 model took about 730 ms with 2 threads, 450 ms with 4, and 350 ms with 6. Selecting sherpa-onnx's CoreML provider instead of the CPU made no difference to the float32 time. These are exploratory runs on battery power, used only to choose the default (float32, 4 threads); the recorded measurements come in step 5.
+**The smaller Kokoro model is the slower one on this Mac.** On an Apple M4 Pro CPU, the int8 model synthesised a short sentence (1.9 s of audio) in 1,000 to 1,200 ms at every thread count from 1 to 6. The float32 model took about 730 ms with 2 threads, 450 ms with 4, and 350 ms with 6. Selecting sherpa-onnx's CoreML provider instead of the CPU made no difference to the float32 time. Those were exploratory runs on battery, used to choose the default (float32, 4 threads). In the recorded measurements, int8 made the voice stage 2.6 times slower ([Measurements](#measurements)).
 
 **The voice detector starts segments late.** On the test audio, the Silero segments began up to 350 ms after the speech did, and the transcript lost its first word ("Hi", "Can you"). The endpointer now keeps a ring buffer of recent audio and starts each utterance 300 ms (`VAD_PREROLL_MS`) before the detected start.
 

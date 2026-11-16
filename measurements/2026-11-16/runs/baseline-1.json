@@ -1,0 +1,259 @@
+{
+  "arm": "baseline",
+  "run": 1,
+  "providers": {
+    "llm": "ollama:qwen2.5:3b",
+    "stt": "local:moonshine-base-en",
+    "tts": "local:kokoro-en:af_heart"
+  },
+  "settings": {
+    "vad": {
+      "threshold": 0.5,
+      "minSilenceMs": 500,
+      "minSpeechMs": 250,
+      "prerollMs": 300
+    },
+    "reply": {
+      "chunking": {
+        "mode": "sentence"
+      },
+      "ttsConcurrency": 1
+    },
+    "llm": {
+      "temperature": 0,
+      "seed": 42,
+      "numCtx": 8192,
+      "maxTokens": 512
+    }
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "outcome": "completed",
+      "transcript": "I can you hear me okay",
+      "reply": "Yes, your voice is clear. How can I assist you today?",
+      "endpoint": {
+        "speechMs": 1618,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 43.6,
+        "llm_first_token": 94.7,
+        "first_chunk": 169.6,
+        "first_audio": 529.2,
+        "first_audio_sent": 530.1,
+        "llm_done": 249.1,
+        "playback_done": 3536.7
+      },
+      "breakdown": {
+        "speech_end→stt_final": 43.6,
+        "stt_final→llm_first_token": 51.1,
+        "llm_first_token→first_chunk": 74.9,
+        "first_chunk→first_audio": 359.6,
+        "first_audio→first_audio_sent": 0.9
+      }
+    },
+    {
+      "turn": 2,
+      "outcome": "interrupted",
+      "transcript": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+      "reply": "Try some relaxation techniques like deep breathing or a gentle stretching before bed. Maybe a calming book or a warm bath could help.",
+      "endpoint": {
+        "speechMs": 6290,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 99.9,
+        "llm_first_token": 207.6,
+        "first_chunk": 361.2,
+        "first_audio": 1281.8,
+        "first_audio_sent": 1282.9,
+        "llm_done": 483.9
+      },
+      "breakdown": {
+        "speech_end→stt_final": 99.9,
+        "stt_final→llm_first_token": 107.7,
+        "llm_first_token→first_chunk": 153.6,
+        "first_chunk→first_audio": 920.6,
+        "first_audio→first_audio_sent": 1.1
+      }
+    },
+    {
+      "turn": 3,
+      "outcome": "completed",
+      "transcript": "Sorry stop there that's enough",
+      "reply": "No problem at all. If you think of anything else, feel free to ask. Have a good sleep!",
+      "endpoint": {
+        "speechMs": 2226,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 45.9,
+        "llm_first_token": 101.2,
+        "first_chunk": 155.1,
+        "first_audio": 476.8,
+        "first_audio_sent": 476.9,
+        "llm_done": 344.1,
+        "playback_done": 5498.6
+      },
+      "breakdown": {
+        "speech_end→stt_final": 45.9,
+        "stt_final→llm_first_token": 55.3,
+        "llm_first_token→first_chunk": 54,
+        "first_chunk→first_audio": 321.7,
+        "first_audio→first_audio_sent": 0.1
+      }
+    },
+    {
+      "turn": 4,
+      "outcome": "completed",
+      "transcript": "Can you give me just the most important one?",
+      "reply": "Sure, try relaxation techniques like deep breathing or meditation before bed.",
+      "endpoint": {
+        "speechMs": 2770,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 53,
+        "llm_first_token": 130,
+        "first_chunk": 273.5,
+        "first_audio": 1123.6,
+        "first_audio_sent": 1123.9,
+        "llm_done": 273.5,
+        "playback_done": 5499.8
+      },
+      "breakdown": {
+        "speech_end→stt_final": 53,
+        "stt_final→llm_first_token": 77,
+        "llm_first_token→first_chunk": 143.5,
+        "first_chunk→first_audio": 850.2,
+        "first_audio→first_audio_sent": 0.3
+      }
+    },
+    {
+      "turn": 5,
+      "outcome": "completed",
+      "transcript": "How many minutes are there in three and a half hours",
+      "reply": "There are 210 minutes in three and a half hours.",
+      "endpoint": {
+        "speechMs": 2610,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 53.2,
+        "llm_first_token": 127.5,
+        "first_chunk": 285.5,
+        "first_audio": 872.2,
+        "first_audio_sent": 872.5,
+        "llm_done": 285.5,
+        "playback_done": 3698.2
+      },
+      "breakdown": {
+        "speech_end→stt_final": 53.2,
+        "stt_final→llm_first_token": 74.3,
+        "llm_first_token→first_chunk": 158,
+        "first_chunk→first_audio": 586.7,
+        "first_audio→first_audio_sent": 0.2
+      }
+    },
+    {
+      "turn": 6,
+      "outcome": "completed",
+      "transcript": "Thanks that's all for today, bye!",
+      "reply": "You're welcome! Goodbye, have a great day!",
+      "endpoint": {
+        "speechMs": 2322,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 47.9,
+        "llm_first_token": 122.3,
+        "first_chunk": 173.6,
+        "first_audio": 446.3,
+        "first_audio_sent": 446.4,
+        "llm_done": 259.8,
+        "playback_done": 2779.5
+      },
+      "breakdown": {
+        "speech_end→stt_final": 47.9,
+        "stt_final→llm_first_token": 74.5,
+        "llm_first_token→first_chunk": 51.3,
+        "first_chunk→first_audio": 272.6,
+        "first_audio→first_audio_sent": 0.1
+      }
+    }
+  ],
+  "bargeIns": [
+    {
+      "interruption": "05-interruption",
+      "speechToStopMs": 420
+    }
+  ],
+  "outOfVocabulary": [],
+  "history": [
+    {
+      "role": "system",
+      "content": "You are a friendly voice assistant talking with someone on a live audio call. Everything you write is spoken aloud by a speech synthesiser, so reply in plain spoken English: one to three short sentences, with no lists, Markdown, emoji, or URLs. If you did not catch what the caller said, ask them to repeat it."
+    },
+    {
+      "role": "user",
+      "content": "I can you hear me okay"
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, your voice is clear. How can I assist you today?"
+    },
+    {
+      "role": "user",
+      "content": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?"
+    },
+    {
+      "role": "assistant",
+      "content": "Try some relaxation techniques like deep"
+    },
+    {
+      "role": "user",
+      "content": "Sorry stop there that's enough"
+    },
+    {
+      "role": "assistant",
+      "content": "No problem at all. If you think of anything else, feel free to ask. Have a good sleep!"
+    },
+    {
+      "role": "user",
+      "content": "Can you give me just the most important one?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sure, try relaxation techniques like deep breathing or meditation before bed."
+    },
+    {
+      "role": "user",
+      "content": "How many minutes are there in three and a half hours"
+    },
+    {
+      "role": "assistant",
+      "content": "There are 210 minutes in three and a half hours."
+    },
+    {
+      "role": "user",
+      "content": "Thanks that's all for today, bye!"
+    },
+    {
+      "role": "assistant",
+      "content": "You're welcome! Goodbye, have a great day!"
+    }
+  ]
+}

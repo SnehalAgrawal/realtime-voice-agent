@@ -26,6 +26,9 @@ export const ARMS = [
   { id: "stt-tiny", change: "Moonshine tiny for speech-to-text", env: { STT_MODEL: "moonshine-tiny-en" } },
   { id: "tts-int8", change: "Kokoro int8 for the voice", env: { TTS_MODEL: "kokoro-en-int8" } },
   { id: "llm-llama", change: "llama3.2:3b as the LLM", env: { LLM_MODEL: "llama3.2:3b" } },
+  // qwen2.5:3b's first sentences rarely had a clause boundary past 24 characters, so clause
+  // chunking changed nothing with it; llama3.2:3b writes longer first sentences.
+  { id: "llm-llama-clause", change: "llama3.2:3b, synthesising clauses", env: { LLM_MODEL: "llama3.2:3b", CHUNKING: "clause" } },
 ];
 const COMMON = { LLM_TEMPERATURE: "0", LLM_SEED: "42" };
 

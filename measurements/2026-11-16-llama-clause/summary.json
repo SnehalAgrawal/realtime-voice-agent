@@ -1,0 +1,267 @@
+{
+  "setup": {
+    "date": "2026-11-16T16:48:55.056Z",
+    "commit": "4f64999",
+    "uncommittedChanges": true,
+    "node": "v24.16.0",
+    "sherpaOnnxNode": "2.0.1",
+    "ollama": "0.40.16",
+    "ollamaModels": [
+      "llama3.2:1b baf6a787fdff",
+      "qwen2.5:3b 357c53fb659c",
+      "llama3.2:3b a80c4f17acd5",
+      "nomic-embed-text:latest 0a109f422b47"
+    ],
+    "machine": "Apple M4 Pro, 24 GiB",
+    "os": "macOS 26.6.2",
+    "power": "Now drawing from 'AC Power'",
+    "loadAverage": "{ 2.49 2.43 2.23 }",
+    "otherOllamaClients": 0
+  },
+  "arms": [
+    {
+      "id": "llm-llama",
+      "change": "llama3.2:3b as the LLM",
+      "runs": 2,
+      "turnsPerRun": [
+        6,
+        6
+      ],
+      "measuredTurns": 12,
+      "median": {
+        "response": 1491,
+        "silence": 500,
+        "stt": 47,
+        "llm": 70,
+        "chunk": 145,
+        "tts": 714,
+        "send": 0
+      },
+      "range": {
+        "response": [
+          1221,
+          2347
+        ],
+        "silence": [
+          500,
+          500
+        ],
+        "stt": [
+          33,
+          102
+        ],
+        "llm": [
+          51,
+          108
+        ],
+        "chunk": [
+          114,
+          340
+        ],
+        "tts": [
+          518,
+          1388
+        ],
+        "send": [
+          0,
+          2
+        ]
+      },
+      "bargeIn": [
+        420,
+        400
+      ],
+      "outcomes": {
+        "completed": 10,
+        "interrupted": 2
+      },
+      "unknownWords": [],
+      "transcripts": [
+        [
+          "I can you hear me okay",
+          "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "Sorry stop there that's enough",
+          "Can you give me just the most important one?",
+          "How many minutes are there in three and a half hours",
+          "Thanks that's all for today, bye!"
+        ],
+        [
+          "I can you hear me okay",
+          "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "Sorry stop there that's enough",
+          "Can you give me just the most important one?",
+          "How many minutes are there in three and a half hours",
+          "Thanks that's all for today, bye!"
+        ]
+      ]
+    },
+    {
+      "id": "llm-llama-clause",
+      "change": "llama3.2:3b, synthesising clauses",
+      "runs": 2,
+      "turnsPerRun": [
+        6,
+        6
+      ],
+      "measuredTurns": 12,
+      "median": {
+        "response": 1252,
+        "silence": 500,
+        "stt": 49,
+        "llm": 71,
+        "chunk": 115,
+        "tts": 542,
+        "send": 0
+      },
+      "range": {
+        "response": [
+          1058,
+          1655
+        ],
+        "silence": [
+          500,
+          500
+        ],
+        "stt": [
+          39,
+          101
+        ],
+        "llm": [
+          51,
+          109
+        ],
+        "chunk": [
+          80,
+          193
+        ],
+        "tts": [
+          358,
+          840
+        ],
+        "send": [
+          0,
+          1
+        ]
+      },
+      "bargeIn": [
+        420,
+        440
+      ],
+      "outcomes": {
+        "completed": 10,
+        "interrupted": 2
+      },
+      "unknownWords": [],
+      "transcripts": [
+        [
+          "I can you hear me okay",
+          "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "Sorry stop there that's enough",
+          "Can you give me just the most important one?",
+          "How many minutes are there in three and a half hours",
+          "Thanks that's all for today, bye!"
+        ],
+        [
+          "I can you hear me okay",
+          "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "Sorry stop there that's enough",
+          "Can you give me just the most important one?",
+          "How many minutes are there in three and a half hours",
+          "Thanks that's all for today, bye!"
+        ]
+      ]
+    }
+  ],
+  "wer": [
+    {
+      "model": "moonshine-base-en",
+      "quality": "16 kHz",
+      "wer": 2,
+      "errors": 1,
+      "words": 60,
+      "lines": [
+        {
+          "id": "01-greeting",
+          "reference": "Hi, can you hear me okay?",
+          "heard": "I can you hear me okay",
+          "errors": 1
+        },
+        {
+          "id": "02-long-question",
+          "reference": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "heard": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "errors": 0
+        },
+        {
+          "id": "03-follow-up",
+          "reference": "Can you give me just the most important one?",
+          "heard": "Can you give me just the most important one?",
+          "errors": 0
+        },
+        {
+          "id": "04-numbers",
+          "reference": "How many minutes are there in three and a half hours?",
+          "heard": "How many minutes are there in three and a half hours",
+          "errors": 0
+        },
+        {
+          "id": "05-interruption",
+          "reference": "Sorry, stop there, that's enough.",
+          "heard": "Sorry stop there that's enough",
+          "errors": 0
+        },
+        {
+          "id": "06-goodbye",
+          "reference": "Thanks, that's all for today. Bye.",
+          "heard": "Thanks, that's all for today. Bye.",
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "model": "moonshine-base-en",
+      "quality": "8 kHz mu-law",
+      "wer": 3,
+      "errors": 2,
+      "words": 60,
+      "lines": [
+        {
+          "id": "01-greeting",
+          "reference": "Hi, can you hear me okay?",
+          "heard": "I can you hear me okay?",
+          "errors": 1
+        },
+        {
+          "id": "02-long-question",
+          "reference": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "heard": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+          "errors": 0
+        },
+        {
+          "id": "03-follow-up",
+          "reference": "Can you give me just the most important one?",
+          "heard": "Can you give me just the most important one?",
+          "errors": 0
+        },
+        {
+          "id": "04-numbers",
+          "reference": "How many minutes are there in three and a half hours?",
+          "heard": "10. How many minutes are there in three and a half hours?",
+          "errors": 1
+        },
+        {
+          "id": "05-interruption",
+          "reference": "Sorry, stop there, that's enough.",
+          "heard": "Sorry stop there that's enough",
+          "errors": 0
+        },
+        {
+          "id": "06-goodbye",
+          "reference": "Thanks, that's all for today. Bye.",
+          "heard": "Thanks that's all for today, bye!",
+          "errors": 0
+        }
+      ]
+    }
+  ]
+}

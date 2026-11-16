@@ -1,0 +1,259 @@
+{
+  "arm": "llm-llama",
+  "run": 1,
+  "providers": {
+    "llm": "ollama:llama3.2:3b",
+    "stt": "local:moonshine-base-en",
+    "tts": "local:kokoro-en:af_heart"
+  },
+  "settings": {
+    "vad": {
+      "threshold": 0.5,
+      "minSilenceMs": 500,
+      "minSpeechMs": 250,
+      "prerollMs": 300
+    },
+    "reply": {
+      "chunking": {
+        "mode": "sentence"
+      },
+      "ttsConcurrency": 1
+    },
+    "llm": {
+      "temperature": 0,
+      "seed": 42,
+      "numCtx": 8192,
+      "maxTokens": 512
+    }
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "outcome": "completed",
+      "transcript": "I can you hear me okay",
+      "reply": "Yes, I can hear you just fine, thank you for asking. Go ahead and ask your question or share what's on your mind.",
+      "endpoint": {
+        "speechMs": 1618,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 34.5,
+        "llm_first_token": 85.1,
+        "first_chunk": 230,
+        "first_audio": 919.5,
+        "first_audio_sent": 920.8,
+        "llm_done": 382.8,
+        "playback_done": 6639.3
+      },
+      "breakdown": {
+        "speech_end→stt_final": 34.5,
+        "stt_final→llm_first_token": 50.6,
+        "llm_first_token→first_chunk": 144.9,
+        "first_chunk→first_audio": 689.4,
+        "first_audio→first_audio_sent": 1.3
+      }
+    },
+    {
+      "turn": 2,
+      "outcome": "interrupted",
+      "transcript": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+      "reply": "Racing thoughts can be really frustrating when it comes to sleep. Have you tried writing down your thoughts before bed to get them out of your head, or practicing some relaxation techniques like deep breathing or meditation?",
+      "endpoint": {
+        "speechMs": 6290,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 96,
+        "llm_first_token": 203.9,
+        "first_chunk": 347,
+        "first_audio": 1264.1,
+        "first_audio_sent": 1265.6,
+        "llm_done": 634.9
+      },
+      "breakdown": {
+        "speech_end→stt_final": 96,
+        "stt_final→llm_first_token": 107.8,
+        "llm_first_token→first_chunk": 143.2,
+        "first_chunk→first_audio": 917.1,
+        "first_audio→first_audio_sent": 1.4
+      }
+    },
+    {
+      "turn": 3,
+      "outcome": "completed",
+      "transcript": "Sorry stop there that's enough",
+      "reply": "Sorry about that, I got a bit carried away. Let me try that again. Racing thoughts can be really frustrating, and it's great that you're looking for ways to address it. Would you like some suggestions on how to calm your mind before bed?",
+      "endpoint": {
+        "speechMs": 2226,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 37.2,
+        "llm_first_token": 92,
+        "first_chunk": 205.8,
+        "first_audio": 731.4,
+        "first_audio_sent": 731.6,
+        "llm_done": 664.6,
+        "playback_done": 12441.1
+      },
+      "breakdown": {
+        "speech_end→stt_final": 37.2,
+        "stt_final→llm_first_token": 54.8,
+        "llm_first_token→first_chunk": 113.9,
+        "first_chunk→first_audio": 525.6,
+        "first_audio→first_audio_sent": 0.2
+      }
+    },
+    {
+      "turn": 4,
+      "outcome": "completed",
+      "transcript": "Can you give me just the most important one?",
+      "reply": "One thing that might help is to try writing down all your thoughts and worries before bed, so they're out of your head and you can clear your mind.",
+      "endpoint": {
+        "speechMs": 2450,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 47.3,
+        "llm_first_token": 118.9,
+        "first_chunk": 458.7,
+        "first_audio": 1846.6,
+        "first_audio_sent": 1847,
+        "llm_done": 458.7,
+        "playback_done": 8659.2
+      },
+      "breakdown": {
+        "speech_end→stt_final": 47.3,
+        "stt_final→llm_first_token": 71.6,
+        "llm_first_token→first_chunk": 339.8,
+        "first_chunk→first_audio": 1387.9,
+        "first_audio→first_audio_sent": 0.4
+      }
+    },
+    {
+      "turn": 5,
+      "outcome": "completed",
+      "transcript": "How many minutes are there in three and a half hours",
+      "reply": "That's a bit of a different question, isn't it? There are 180 minutes in three hours, so three and a half hours would be 180 plus 30, which is 210 minutes.",
+      "endpoint": {
+        "speechMs": 2610,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 46.4,
+        "llm_first_token": 119.8,
+        "first_chunk": 261.4,
+        "first_audio": 919.9,
+        "first_audio_sent": 920.1,
+        "llm_done": 573.5,
+        "playback_done": 10821.1
+      },
+      "breakdown": {
+        "speech_end→stt_final": 46.4,
+        "stt_final→llm_first_token": 73.4,
+        "llm_first_token→first_chunk": 141.6,
+        "first_chunk→first_audio": 658.5,
+        "first_audio→first_audio_sent": 0.2
+      }
+    },
+    {
+      "turn": 6,
+      "outcome": "completed",
+      "transcript": "Thanks that's all for today, bye!",
+      "reply": "It was nice chatting with you, even if it was a bit of a mixed bag. Have a great day and sweet dreams, and I hope your racing thoughts calm down a bit. Bye for now!",
+      "endpoint": {
+        "speechMs": 2354,
+        "silenceWaitMs": 500,
+        "startDetectMs": 314
+      },
+      "fromSpeechEnd": {
+        "speech_end": 0,
+        "stt_final": 49.4,
+        "llm_first_token": 123.1,
+        "first_chunk": 321.2,
+        "first_audio": 1314.7,
+        "first_audio_sent": 1314.9,
+        "llm_done": 559.9,
+        "playback_done": 9918.6
+      },
+      "breakdown": {
+        "speech_end→stt_final": 49.4,
+        "stt_final→llm_first_token": 73.7,
+        "llm_first_token→first_chunk": 198.1,
+        "first_chunk→first_audio": 993.5,
+        "first_audio→first_audio_sent": 0.2
+      }
+    }
+  ],
+  "bargeIns": [
+    {
+      "interruption": "05-interruption",
+      "speechToStopMs": 420
+    }
+  ],
+  "outOfVocabulary": [],
+  "history": [
+    {
+      "role": "system",
+      "content": "You are a friendly voice assistant talking with someone on a live audio call. Everything you write is spoken aloud by a speech synthesiser, so reply in plain spoken English: one to three short sentences, with no lists, Markdown, emoji, or URLs. If you did not catch what the caller said, ask them to repeat it."
+    },
+    {
+      "role": "user",
+      "content": "I can you hear me okay"
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, I can hear you just fine, thank you for asking. Go ahead and ask your question or share what's on your mind."
+    },
+    {
+      "role": "user",
+      "content": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?"
+    },
+    {
+      "role": "assistant",
+      "content": "Racing thoughts can be really frustrating"
+    },
+    {
+      "role": "user",
+      "content": "Sorry stop there that's enough"
+    },
+    {
+      "role": "assistant",
+      "content": "Sorry about that, I got a bit carried away. Let me try that again. Racing thoughts can be really frustrating, and it's great that you're looking for ways to address it. Would you like some suggestions on how to calm your mind before bed?"
+    },
+    {
+      "role": "user",
+      "content": "Can you give me just the most important one?"
+    },
+    {
+      "role": "assistant",
+      "content": "One thing that might help is to try writing down all your thoughts and worries before bed, so they're out of your head and you can clear your mind."
+    },
+    {
+      "role": "user",
+      "content": "How many minutes are there in three and a half hours"
+    },
+    {
+      "role": "assistant",
+      "content": "That's a bit of a different question, isn't it? There are 180 minutes in three hours, so three and a half hours would be 180 plus 30, which is 210 minutes."
+    },
+    {
+      "role": "user",
+      "content": "Thanks that's all for today, bye!"
+    },
+    {
+      "role": "assistant",
+      "content": "It was nice chatting with you, even if it was a bit of a mixed bag. Have a great day and sweet dreams, and I hope your racing thoughts calm down a bit. Bye for now!"
+    }
+  ]
+}
