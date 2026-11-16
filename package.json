@@ -10,6 +10,9 @@
   },
   "scripts": {
     "chat": "node scripts/chat.js",
+    "converse": "node scripts/converse.js",
+    "models": "node scripts/download-models.js",
+    "test-audio": "node scripts/make-test-audio.js",
     "test": "node --test",
     "lint": "eslint .",
     "check": "npm run lint && npm test"
@@ -18,5 +21,8 @@
     "@eslint/js": "10.0.1",
     "eslint": "10.14.0",
     "globals": "17.14.0"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "2.0.1"
   }
 }

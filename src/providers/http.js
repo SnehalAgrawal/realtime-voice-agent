@@ -2,13 +2,18 @@
 // so the request each one sends is visible in one short file.
 
 /** POSTs JSON and throws with the response body if the status is not 2xx. */
-export async function postJson(url, body, { headers = {}, signal, timeoutMs } = {}) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(body),
-    signal: withTimeout(signal, timeoutMs),
-  });
+export function postJson(url, body, { headers = {}, ...options } = {}) {
+  return postBody(url, JSON.stringify(body), { headers: { "content-type": "application/json", ...headers }, ...options });
+}
+
+/** POSTs multipart form data (fetch sets the boundary). */
+export function postForm(url, form, options = {}) {
+  return postBody(url, form, options);
+}
+
+/** POSTs a body as is and throws with the provider's error message if the status is not 2xx. */
+export async function postBody(url, body, { headers = {}, signal, timeoutMs } = {}) {
+  const response = await fetch(url, { method: "POST", headers, body, signal: withTimeout(signal, timeoutMs) });
   await ensureOk(response, url);
   return response;
 }

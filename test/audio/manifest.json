@@ -1,0 +1,56 @@
+{
+  "generatedWith": "Kokoro-82M v1.0 (float32) via sherpa-onnx-node 2.0.1",
+  "sampleRate": 16000,
+  "leadMs": 300,
+  "tailMs": 1500,
+  "utterances": [
+    {
+      "id": "01-greeting",
+      "file": "01-greeting.wav",
+      "voice": "am_michael",
+      "text": "Hi, can you hear me okay?",
+      "speechStartMs": 300,
+      "speechMs": 1659
+    },
+    {
+      "id": "02-long-question",
+      "file": "02-long-question.wav",
+      "voice": "bf_emma",
+      "text": "My mind keeps racing when I go to bed, so it takes me ages to fall asleep. What can I do about that?",
+      "speechStartMs": 300,
+      "speechMs": 6107
+    },
+    {
+      "id": "03-follow-up",
+      "file": "03-follow-up.wav",
+      "voice": "am_michael",
+      "text": "Can you give me just the most important one?",
+      "speechStartMs": 300,
+      "speechMs": 2654
+    },
+    {
+      "id": "04-numbers",
+      "file": "04-numbers.wav",
+      "voice": "af_sarah",
+      "text": "How many minutes are there in three and a half hours?",
+      "speechStartMs": 300,
+      "speechMs": 2513
+    },
+    {
+      "id": "05-interruption",
+      "file": "05-interruption.wav",
+      "voice": "bm_george",
+      "text": "Sorry, stop there, that's enough.",
+      "speechStartMs": 300,
+      "speechMs": 2107
+    },
+    {
+      "id": "06-goodbye",
+      "file": "06-goodbye.wav",
+      "voice": "bf_emma",
+      "text": "Thanks, that's all for today. Bye.",
+      "speechStartMs": 300,
+      "speechMs": 2309
+    }
+  ]
+}

@@ -41,7 +41,8 @@ export function loadConfig(env = process.env) {
       baseUrl: env.STT_BASE_URL || undefined,
       model: env.STT_MODEL || undefined,
       apiKey: env.STT_API_KEY || undefined,
-      language: env.STT_LANGUAGE || "en",
+      language: env.STT_LANGUAGE || undefined,
+      numThreads: integer(env, "STT_THREADS", 2),
     },
     tts: {
       provider: choice(env, "TTS_PROVIDER", PROVIDERS.tts, "local"),
@@ -50,7 +51,16 @@ export function loadConfig(env = process.env) {
       voice: env.TTS_VOICE || undefined,
       apiKey: env.TTS_API_KEY || undefined,
       region: env.TTS_REGION || undefined,
+      speed: number(env, "TTS_SPEED", 1),
+      numThreads: integer(env, "TTS_THREADS", 4),
     },
+    vad: {
+      threshold: number(env, "VAD_THRESHOLD", 0.5),
+      minSilenceMs: integer(env, "VAD_SILENCE_MS", 500),
+      minSpeechMs: integer(env, "VAD_MIN_SPEECH_MS", 250),
+      prerollMs: integer(env, "VAD_PREROLL_MS", 300),
+    },
+    bargeIn: boolean(env, "BARGE_IN", true),
     reply: {
       chunking: { mode: choice(env, "CHUNKING", ["sentence", "clause", "whole"], "sentence") },
       ttsConcurrency: integer(env, "TTS_CONCURRENCY", 1),
@@ -71,6 +81,14 @@ function number(env, name, fallback) {
   const value = Number(env[name]);
   if (!Number.isFinite(value)) throw new Error(`${name} must be a number (got "${env[name]}")`);
   return value;
+}
+
+function boolean(env, name, fallback) {
+  const value = env[name]?.trim().toLowerCase();
+  if (!value) return fallback;
+  if (["1", "true", "yes", "on"].includes(value)) return true;
+  if (["0", "false", "no", "off"].includes(value)) return false;
+  throw new Error(`${name} must be true or false (got "${env[name]}")`);
 }
 
 function integer(env, name, fallback) {
